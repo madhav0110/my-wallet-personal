@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Wifi,
   Battery,
@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   Share2,
   Download,
+  MonitorDown,
   Sparkles,
   Layers,
   X,
@@ -42,399 +43,89 @@ import {
 // ============================================================================
 // LOCALSTORAGE KEYS (MULTI-KEY PERSISTENCE ENGINE)
 // ============================================================================
-const LS_CARDS_KEY = 'wallet_app_cards_v2';
-const LS_PASSBOOK_KEY = 'wallet_app_passbook_v2';
-const LS_PREFS_KEY = 'wallet_app_prefs_v2';
+const LS_CARDS_KEY = 'wallet_app_cards_v3';
+const LS_PASSBOOK_KEY = 'wallet_app_passbook_v3';
+const LS_PREFS_KEY = 'wallet_app_prefs_v3';
 
-// ============================================================================
-// DEFAULT SAFE DUMMY DATA FOR THE 4 AUTHENTIC INDIAN BANK CARDS
-// ============================================================================
-const DEFAULT_CARDS_METADATA = [
-  {
-    id: 'hdfc-moneyback-debit',
-    designKey: 'HDFC_MONEYBACK',
-    name: 'MoneyBack Debit',
-    bank: 'HDFC Bank',
-    type: 'DEBIT',
-    network: 'VISA Platinum',
-    number: '4191 0000 0000 1234',
-    holder: 'ALEX SHARMA',
-    expiry: '06/31',
-    cvv: '123',
-    balance: 148520.00, // Linked Savings A/C Balance in INR
-    limit: 100000.00, // Daily ATM / POS Limit
-    atmLimit: 50000.00,
-    posLimit: 100000.00,
-    spentThisMonth: 28450.00,
-    rewardPoints: '1,840 MoneyBack Pts',
-    ifsc: 'HDFC0000124',
-    branch: 'Navrangpura, Ahmedabad',
-    accountNumber: '50100000001234',
-    upiId: 'alex.sharma@hdfcbank',
-    helpline: '1800 202 6161',
-    frozen: false,
-    gradient: 'from-[#6998ce] via-[#3d6ea5] to-[#173963]',
-    accentColor: '#3B82F6',
-    glowClass: 'shadow-blue-500/30'
-  },
-  {
-    id: 'sbi-global-debit',
-    designKey: 'SBI_GLOBAL',
-    name: 'SBI Global International',
-    bank: 'State Bank of India',
-    type: 'DEBIT',
-    network: 'RuPay Debit',
-    number: '6522 0000 0000 5678',
-    holder: 'RAHUL VERMA',
-    expiry: '07/32',
-    cvv: '456',
-    balance: 84390.50, // Linked SBI Savings A/C Balance
-    limit: 75000.00,
-    atmLimit: 40000.00,
-    posLimit: 75000.00,
-    spentThisMonth: 14610.00,
-    rewardPoints: '1,290 SBI Rewardz',
-    ifsc: 'SBIN0004321',
-    branch: 'Ashram Road Main, Ahmedabad',
-    accountNumber: '389100005678',
-    upiId: 'rahul.verma@sbi',
-    helpline: '1800 1234 / 1800 2100',
-    frozen: false,
-    gradient: 'from-[#1B222C] via-[#10141B] to-[#07090D]',
-    accentColor: '#00A9E0',
-    glowClass: 'shadow-cyan-500/25'
-  },
-  {
-    id: 'swiggy-hdfc-credit',
-    designKey: 'SWIGGY_HDFC',
-    name: 'Swiggy HDFC Credit',
-    bank: 'HDFC Bank • Swiggy',
-    type: 'CREDIT',
-    network: 'Mastercard World',
-    number: '5412 0000 0000 9012',
-    holder: 'RAHUL VERMA',
-    expiry: '05/28',
-    cvv: '789',
-    balance: 18450.00, // Current Statement Utilized
-    limit: 150000.00, // Total Credit Limit
-    available: 131550.00, // Available Credit Limit
-    billingCycle: '18th of Every Month',
-    minDue: 1250.00,
-    dueDate: '05 Nov 2026',
-    rewardPoints: '₹2,140 Cashback Earned',
-    ifsc: 'HDFC0000128',
-    branch: 'HDFC Credit Cards Division, Chennai',
-    accountNumber: 'CC-541200XXXXXX9012',
-    upiId: 'swiggycard.rahul@hdfcbank',
-    helpline: '1800 266 4332',
-    frozen: false,
-    gradient: 'from-[#FF5200] via-[#D91B5C] to-[#2B0938]',
-    accentColor: '#FF5200',
-    glowClass: 'shadow-orange-500/30'
-  },
-  {
-    id: 'tata-neu-sbi-credit',
-    designKey: 'TATA_NEU_SBI',
-    name: 'Tata Neu Infinity SBI',
-    bank: 'SBI Card • Tata Neu',
-    type: 'CREDIT',
-    network: 'RuPay Select',
-    number: '6080 0000 0000 3456',
-    holder: 'RAHUL VERMA',
-    expiry: '09/29',
-    cvv: '321',
-    balance: 26400.00, // Statement Utilized
-    limit: 200000.00, // Credit Limit
-    available: 173600.00, // Available Credit Limit
-    billingCycle: '22nd of Every Month',
-    minDue: 1850.00,
-    dueDate: '11 Nov 2026',
-    rewardPoints: '3,480 NeuCoins (1 NC = ₹1)',
-    ifsc: 'SBIN00CARDS',
-    branch: 'SBI Cards & Payment Services, Gurugram',
-    accountNumber: 'CC-608000XXXXXX3456',
-    upiId: 'rahul.tataneu@sbicard',
-    helpline: '1860 180 1290',
-    frozen: false,
-    gradient: 'from-[#2E1A5E] via-[#1B0A3A] to-[#140D2B]',
-    accentColor: '#C084FC',
-    glowClass: 'shadow-purple-500/30'
-  }
-];
+const LEGACY_CARDS_KEY = 'wallet_app_cards_v2';
+const LEGACY_PASSBOOK_KEY = 'wallet_app_passbook_v2';
+const LEGACY_PREFS_KEY = 'wallet_app_prefs_v2';
 
-const DEFAULT_PASSBOOK_BY_CARD = {
-  'hdfc-moneyback-debit': [
-    {
-      id: 'UTR428910482911',
-      title: 'Reliance Fresh Supermarket',
-      category: 'Shopping',
-      date: '15 Oct 2026, 06:18 PM',
-      mode: 'POS Tap',
-      type: 'DEBIT',
-      amount: 2480.00,
-      runningBalance: 148520.00,
-      status: 'Settled',
-      merchantLocation: 'Ahmedabad, GJ',
-      notes: 'Monthly groceries & household items (2X MoneyBack Pts)'
-    },
-    {
-      id: 'UTR428899102341',
-      title: 'Dividend & NEFT Inward Credit',
-      category: 'Salary',
-      date: '13 Oct 2026, 11:05 AM',
-      mode: 'IMPS/NEFT',
-      type: 'CREDIT',
-      amount: 45000.00,
-      runningBalance: 151000.00,
-      status: 'Completed',
-      merchantLocation: 'HDFC CMS Hub Mumbai',
-      notes: 'Direct Credit to HDFC Savings A/C'
-    },
-    {
-      id: 'UTR428741092831',
-      title: 'Amazon Pay India Pvt Ltd',
-      category: 'Shopping',
-      date: '10 Oct 2026, 09:22 PM',
-      mode: 'Online',
-      type: 'DEBIT',
-      amount: 4999.00,
-      runningBalance: 106000.00,
-      status: 'Settled',
-      merchantLocation: 'Bengaluru / Online',
-      notes: 'Festive Sale Electronics Order'
-    },
-    {
-      id: 'UTR428612904412',
-      title: 'Torrent Power Electricity Bill',
-      category: 'Bills',
-      date: '06 Oct 2026, 10:15 AM',
-      mode: 'Auto-Debit',
-      type: 'DEBIT',
-      amount: 3420.00,
-      runningBalance: 110999.00,
-      status: 'Settled',
-      merchantLocation: 'Ahmedabad Grid',
-      notes: 'Monthly residential electricity bill'
-    },
-    {
-      id: 'UTR428500192837',
-      title: 'MoneyBack Cashback Redemption',
-      category: 'Salary',
-      date: '02 Oct 2026, 02:00 PM',
-      mode: 'IMPS/NEFT',
-      type: 'CREDIT',
-      amount: 750.00,
-      runningBalance: 114419.00,
-      status: 'Completed',
-      merchantLocation: 'HDFC NetBanking',
-      notes: 'Redeemed 3,000 MoneyBack Debit Points'
-    }
-  ],
-  'sbi-global-debit': [
-    {
-      id: 'RRN628819203412',
-      title: 'IRCTC Rail Connect Booking',
-      category: 'Travel',
-      date: '15 Oct 2026, 01:40 PM',
-      mode: 'Online',
-      type: 'DEBIT',
-      amount: 1845.00,
-      runningBalance: 84390.50,
-      status: 'Settled',
-      merchantLocation: 'New Delhi / IRCTC Web',
-      notes: 'Vande Bharat Express AC Chair Car (ADI -> MMCT)'
-    },
-    {
-      id: 'RRN628710928311',
-      title: 'UPI Inward Transfer - Family',
-      category: 'Salary',
-      date: '12 Oct 2026, 05:12 PM',
-      mode: 'UPI',
-      type: 'CREDIT',
-      amount: 25000.00,
-      runningBalance: 86235.50,
-      status: 'Completed',
-      merchantLocation: 'SBI YONO UPI',
-      notes: 'Inward IMPS / UPI Credit to Savings A/C'
-    },
-    {
-      id: 'RRN628654901239',
-      title: 'IndianOil Fuel Station',
-      category: 'Travel',
-      date: '09 Oct 2026, 08:30 PM',
-      mode: 'POS Tap',
-      type: 'DEBIT',
-      amount: 2600.00,
-      runningBalance: 61235.50,
-      status: 'Settled',
-      merchantLocation: 'SG Highway, Ahmedabad',
-      notes: 'Petrol refill + Zero Fuel Surcharge Waiver'
-    },
-    {
-      id: 'RRN628512098374',
-      title: 'SBI ATM Cash Withdrawal',
-      category: 'Bills',
-      date: '04 Oct 2026, 04:05 PM',
-      mode: 'POS Tap',
-      type: 'DEBIT',
-      amount: 5000.00,
-      runningBalance: 63835.50,
-      status: 'Settled',
-      merchantLocation: 'Navrangpura SBI Branch ATM',
-      notes: 'Cardless/Chip ATM Withdrawal'
-    }
-  ],
-  'swiggy-hdfc-credit': [
-    {
-      id: 'SWG998241092',
-      title: 'Swiggy Instamart Express',
-      category: 'Shopping',
-      date: '15 Oct 2026, 07:05 PM',
-      mode: 'Online',
-      type: 'DEBIT',
-      amount: 1120.00,
-      runningBalance: 131550.00,
-      status: 'Settled',
-      merchantLocation: 'Swiggy App (10% Cashback)',
-      notes: 'Late evening snacks, cold brew & fruits (+₹112 Cashback)'
-    },
-    {
-      id: 'SWG998192831',
-      title: 'Swiggy Dineout - The Green House',
-      category: 'Dining',
-      date: '13 Oct 2026, 09:40 PM',
-      mode: 'Online',
-      type: 'DEBIT',
-      amount: 2850.00,
-      runningBalance: 132670.00,
-      status: 'Settled',
-      merchantLocation: 'Ahmedabad (10% Cashback)',
-      notes: 'Family dinner bill via Swiggy Dineout (+₹285 Cashback)'
-    },
-    {
-      id: 'SWG998019283',
-      title: 'Statement Cashback Auto-Credit',
-      category: 'Salary',
-      date: '10 Oct 2026, 08:00 AM',
-      mode: 'Auto-Debit',
-      type: 'CREDIT',
-      amount: 1680.00,
-      runningBalance: 135520.00,
-      status: 'Completed',
-      merchantLocation: 'HDFC Swiggy Co-Brand Ledger',
-      notes: 'Monthly 10% Swiggy & 5% Online Spend Statement Cashback'
-    },
-    {
-      id: 'SWG997912004',
-      title: 'Myntra Fashion Online',
-      category: 'Shopping',
-      date: '07 Oct 2026, 03:15 PM',
-      mode: 'Online',
-      type: 'DEBIT',
-      amount: 3499.00,
-      runningBalance: 133840.00,
-      status: 'Settled',
-      merchantLocation: 'Online Partner (5% Cashback)',
-      notes: 'Sneakers & festive wear (+₹175 Cashback)'
-    }
-  ],
-  'tata-neu-sbi-credit': [
-    {
-      id: 'NEU778291042',
-      title: 'Croma Electronics Flagship',
-      category: 'Shopping',
-      date: '14 Oct 2026, 05:50 PM',
-      mode: 'POS Tap',
-      type: 'DEBIT',
-      amount: 14990.00,
-      runningBalance: 173600.00,
-      status: 'Settled',
-      merchantLocation: 'Croma Store (10% NeuCoins)',
-      notes: 'Apple Watch SE 2nd Gen (+1,499 NeuCoins Earned)'
-    },
-    {
-      id: 'NEU778109283',
-      title: 'BigBasket Daily & Supersaver',
-      category: 'Shopping',
-      date: '11 Oct 2026, 10:15 AM',
-      mode: 'UPI',
-      type: 'DEBIT',
-      amount: 1890.00,
-      runningBalance: 188590.00,
-      status: 'Settled',
-      merchantLocation: 'Tata Neu App',
-      notes: 'Dry fruits, organic staples & dairy (+189 NeuCoins)'
-    },
-    {
-      id: 'NEU777982310',
-      title: 'BBPS Credit Card Bill Payment',
-      category: 'Salary',
-      date: '08 Oct 2026, 12:30 PM',
-      mode: 'UPI',
-      type: 'CREDIT',
-      amount: 18000.00,
-      runningBalance: 190480.00,
-      status: 'Completed',
-      merchantLocation: 'SBI Card Clearing Hub',
-      notes: 'Previous Statement Bill Paid in Full'
-    },
-    {
-      id: 'NEU777810294',
-      title: 'Air India Domestic Flight',
-      category: 'Travel',
-      date: '03 Oct 2026, 09:05 AM',
-      mode: 'Online',
-      type: 'DEBIT',
-      amount: 9520.00,
-      runningBalance: 172480.00,
-      status: 'Settled',
-      merchantLocation: 'Ahmedabad -> Bengaluru',
-      notes: 'Round-trip booking + Complimentary Domestic Lounge Access'
-    }
-  ]
-};
+const LEGACY_DUMMY_CARD_IDS = new Set([
+  'hdfc-moneyback-debit',
+  'sbi-global-debit',
+  'swiggy-hdfc-credit',
+  'tata-neu-sbi-credit'
+]);
 
 const DEFAULT_PREFS = {
   showNumbers: false,
   hideTotalBalance: false,
   sbiVerticalMode: false,
-  lastSyncedAt: '15 Oct 2026, 08:10 PM'
+  lastSyncedAt: ''
 };
 
-// Combine metadata + passbook ledger
+const withoutDummyCards = (cards, passbook) =>
+  (Array.isArray(cards) ? cards : [])
+    .filter((card) => card && !LEGACY_DUMMY_CARD_IDS.has(card.id))
+    .map((card) => ({
+      ...card,
+      transactions: Array.isArray(passbook?.[card.id])
+        ? passbook[card.id]
+        : Array.isArray(card.transactions)
+          ? card.transactions
+          : []
+    }));
+
+const readCardBundle = (cardsKey, passbookKey) => {
+  const rawCards = window.localStorage.getItem(cardsKey);
+  if (!rawCards) return null;
+  const parsedCards = JSON.parse(rawCards);
+  const rawPassbook = window.localStorage.getItem(passbookKey);
+  const parsedPassbook = rawPassbook ? JSON.parse(rawPassbook) : {};
+  return withoutDummyCards(parsedCards, parsedPassbook);
+};
+
+const persistCardBundle = (cards) => {
+  const cardsMetadataOnly = cards.map(({ transactions, ...rest }) => rest);
+  const passbookMap = {};
+  cards.forEach((card) => {
+    passbookMap[card.id] = card.transactions || [];
+  });
+  window.localStorage.setItem(LS_CARDS_KEY, JSON.stringify(cardsMetadataOnly));
+  window.localStorage.setItem(LS_PASSBOOK_KEY, JSON.stringify(passbookMap));
+};
+
 const buildInitialCards = () => {
   try {
-    const rawCards = window.localStorage.getItem(LS_CARDS_KEY);
-    const rawPassbook = window.localStorage.getItem(LS_PASSBOOK_KEY);
-    const parsedCards = rawCards ? JSON.parse(rawCards) : null;
-    const parsedPassbook = rawPassbook ? JSON.parse(rawPassbook) : null;
+    const current = readCardBundle(LS_CARDS_KEY, LS_PASSBOOK_KEY);
+    if (current) return current;
 
-    if (Array.isArray(parsedCards) && parsedCards.length > 0) {
-      return parsedCards.map((c) => ({
-        ...c,
-        transactions:
-          parsedPassbook && Array.isArray(parsedPassbook[c.id])
-            ? parsedPassbook[c.id]
-            : Array.isArray(c.transactions)
-            ? c.transactions
-            : DEFAULT_PASSBOOK_BY_CARD[c.id] || []
-      }));
+    const legacy = readCardBundle(LEGACY_CARDS_KEY, LEGACY_PASSBOOK_KEY);
+    if (legacy) {
+      persistCardBundle(legacy);
+      window.localStorage.removeItem(LEGACY_CARDS_KEY);
+      window.localStorage.removeItem(LEGACY_PASSBOOK_KEY);
+      return legacy;
     }
   } catch (e) {
-    // Fallback to default safe dummy data
+    // ignore corrupt storage
   }
 
-  return DEFAULT_CARDS_METADATA.map((c) => ({
-    ...c,
-    transactions: DEFAULT_PASSBOOK_BY_CARD[c.id] || []
-  }));
+  return [];
 };
 
 const loadInitialPrefs = () => {
   try {
-    const raw = window.localStorage.getItem(LS_PREFS_KEY);
+    const raw =
+      window.localStorage.getItem(LS_PREFS_KEY) ||
+      window.localStorage.getItem(LEGACY_PREFS_KEY);
     if (raw) {
-      return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
+      const parsed = JSON.parse(raw);
+      if (parsed.lastSyncedAt === '15 Oct 2026, 08:10 PM') {
+        parsed.lastSyncedAt = '';
+      }
+      return { ...DEFAULT_PREFS, ...parsed };
     }
   } catch (e) {
     // ignore
@@ -501,6 +192,21 @@ export default function App() {
   const [storageTab, setStorageTab] = useState('OVERVIEW'); // 'OVERVIEW' | 'JSON' | 'IMPORT'
   const [quickGlobalName, setQuickGlobalName] = useState('');
   const [importJsonText, setImportJsonText] = useState('');
+  const [installEvent, setInstallEvent] = useState(null);
+
+  useEffect(() => {
+    const onPrompt = (event) => {
+      event.preventDefault();
+      setInstallEvent(event);
+    };
+    const onInstalled = () => setInstallEvent(null);
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
 
   // Derived convenience flags from prefs
   const showNumbers = prefs.showNumbers;
@@ -714,7 +420,7 @@ export default function App() {
     const formattedNumber =
       editCardForm.number.replace(/\D/g, '').length >= 4
         ? format16DigitsInput(editCardForm.number)
-        : '4191 0000 0000 1234';
+        : editCardForm.number.trim();
     const nextBalance = Math.max(0, parseFloat(editCardForm.balance) || 0);
     const nextLimit = Math.max(0, parseFloat(editCardForm.limit) || 100000);
 
@@ -770,23 +476,29 @@ export default function App() {
     triggerToast(`Cardholder name "${cleanName}" applied to all cards`);
   };
 
-  // Reset all 3 localStorage keys to default safe dummy data
-  const handleResetToDummyData = () => {
+  const handleInstall = async () => {
+    if (!installEvent) return;
+    installEvent.prompt();
+    const choice = await installEvent.userChoice;
+    if (choice.outcome === 'accepted') setInstallEvent(null);
+  };
+
+  const handleClearWallet = () => {
     try {
       window.localStorage.removeItem(LS_CARDS_KEY);
       window.localStorage.removeItem(LS_PASSBOOK_KEY);
       window.localStorage.removeItem(LS_PREFS_KEY);
+      window.localStorage.removeItem(LEGACY_CARDS_KEY);
+      window.localStorage.removeItem(LEGACY_PASSBOOK_KEY);
+      window.localStorage.removeItem(LEGACY_PREFS_KEY);
     } catch (e) {
       // ignore
     }
-    const freshCards = DEFAULT_CARDS_METADATA.map((c) => ({
-      ...c,
-      transactions: DEFAULT_PASSBOOK_BY_CARD[c.id] || []
-    }));
-    setCards(freshCards);
+    setCards([]);
     setPrefs(DEFAULT_PREFS);
+    setSelectedCardId(null);
     setIsStorageModalOpen(false);
-    triggerToast('Reset all localStorage keys to default dummy data');
+    triggerToast('Cleared wallet data from this browser');
   };
 
   // Live JSON snapshot of all 3 localStorage keys for the Inspector & Backup
@@ -821,21 +533,21 @@ export default function App() {
     e.preventDefault();
     try {
       const parsed = JSON.parse(importJsonText);
-      const importedCards = parsed[LS_CARDS_KEY];
-      const importedPassbook = parsed[LS_PASSBOOK_KEY] || {};
-      const importedPrefs = parsed[LS_PREFS_KEY] || DEFAULT_PREFS;
+      const importedCards = parsed[LS_CARDS_KEY] || parsed[LEGACY_CARDS_KEY];
+      const importedPassbook =
+        parsed[LS_PASSBOOK_KEY] || parsed[LEGACY_PASSBOOK_KEY] || {};
+      const importedPrefs = parsed[LS_PREFS_KEY] || parsed[LEGACY_PREFS_KEY] || DEFAULT_PREFS;
 
-      if (!Array.isArray(importedCards) || importedCards.length === 0) {
-        triggerToast('Invalid JSON format: missing wallet_app_cards_v2 array');
+      if (!Array.isArray(importedCards)) {
+        triggerToast(`Invalid JSON format: missing ${LS_CARDS_KEY} array`);
         return;
       }
 
-      const merged = importedCards.map((c) => ({
-        ...c,
-        transactions: Array.isArray(importedPassbook[c.id])
-          ? importedPassbook[c.id]
-          : DEFAULT_PASSBOOK_BY_CARD[c.id] || []
-      }));
+      const merged = withoutDummyCards(importedCards, importedPassbook);
+      if (merged.length === 0) {
+        triggerToast('Import has no cards.');
+        return;
+      }
 
       updateCardsAndPersist(merged);
       updatePrefs(importedPrefs);
@@ -1452,6 +1164,15 @@ export default function App() {
           )}
 
           <div className="flex items-center gap-2">
+            {installEvent && (
+              <button
+                type="button"
+                onClick={handleInstall}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3.5 py-2.5 text-sm font-bold text-white transition hover:bg-white/10"
+              >
+                <MonitorDown className="h-4 w-4" /> Install
+              </button>
+            )}
             {selectedCardId && (
               <button
                 onClick={() => updatePrefs({ showNumbers: !showNumbers })}
@@ -1485,6 +1206,19 @@ export default function App() {
                 </div>
               </div>
 
+              {cards.length === 0 ? (
+                <div className="mx-auto flex min-h-[280px] w-full max-w-[520px] flex-col items-center justify-center rounded-[24px] border border-dashed border-white/15 bg-white/[0.03] px-6 text-center">
+                  <p className="text-base font-semibold text-white">No cards yet</p>
+                  <p className="mt-2 text-sm text-slate-400">Add a card to start a passbook.</p>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddCardOpen(true)}
+                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-cyan-400 px-3.5 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-cyan-300"
+                  >
+                    <Plus className="h-4 w-4" /> Add card
+                  </button>
+                </div>
+              ) : (
               <div
                 className="relative mx-auto w-full max-w-[520px]"
                 style={{ height: `${Math.max(212, (cards.length - 1) * 68 + 212)}px` }}
@@ -1515,6 +1249,7 @@ export default function App() {
                   );
                 })}
               </div>
+              )}
 
             </div>
           )}
@@ -2213,7 +1948,7 @@ export default function App() {
                 {/* 16-Digit Card Number */}
                 <div>
                   <label className="text-[11px] text-slate-300 font-semibold block mb-1">
-                    16-Digit Card Number (Dummy or Custom)
+                    16-Digit Card Number
                   </label>
                   <input
                     type="text"
@@ -2503,11 +2238,11 @@ export default function App() {
                   {/* Reset to Default Safe Dummy Data */}
                   <button
                     type="button"
-                    onClick={handleResetToDummyData}
+                    onClick={handleClearWallet}
                     className="w-full py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-200 text-xs font-bold flex items-center justify-center gap-2 transition"
                   >
                     <RotateCcw className="w-4 h-4" />
-                    <span>Reset to Default Dummy Data</span>
+                    <span>Clear wallet data</span>
                   </button>
                 </div>
               )}
@@ -2549,7 +2284,7 @@ export default function App() {
                     required
                     value={importJsonText}
                     onChange={(e) => setImportJsonText(e.target.value)}
-                    placeholder='{"wallet_app_cards_v2": [...], "wallet_app_passbook_v2": {...}}'
+                    placeholder='{"wallet_app_cards_v3": [...], "wallet_app_passbook_v3": {...}}'
                     className="w-full rounded-2xl bg-black/60 border border-white/15 focus:border-emerald-400 p-3 text-[11px] font-mono text-white outline-none"
                   />
                   <button
